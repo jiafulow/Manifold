@@ -11,8 +11,7 @@
 /* suggestions and discussions on how to optimize code. */
 /* Thanks to David Hunt for finding a ">="-bug!         */
 /********************************************************/
-#ifndef INTERSECTION_H_
-#define INTERSECTION_H_
+#include "Intersection.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -185,5 +184,3 @@ int triBoxOverlap(float boxcenter[3],float boxhalfsize[3],float triverts[3][3])
 
    return 1;   /* box and triangle overlaps */
 }
-
-#endif
