@@ -1,10 +1,12 @@
 #include "Model_OBJ.h"
 
+#include <algorithm>
 #include <iostream>
 
 using namespace std;
 #define ITER_NUM 20
 int g_sharp = 0;
+
 Model_OBJ::Model_OBJ() : tree(0)
 {
 }
@@ -53,52 +55,53 @@ void Model_OBJ::Build_Tree(int resolution)
     tree->BuildEmptyList();
 }
 
-glm::dvec3 Model_OBJ::Closest_Point( const glm::dvec3 *triangle, const glm::dvec3 &sourcePosition ) const
+glm::dvec3 Model_OBJ::Closest_Point( const glm::dvec3 triangle[3], const glm::dvec3& sourcePosition ) const
 {
-    glm::dvec3 edge0 = triangle[1] - triangle[0];
-    glm::dvec3 edge1 = triangle[2] - triangle[0];
-    glm::dvec3 v0 = triangle[0] - sourcePosition;
+    const glm::dvec3 edge0 = triangle[1] - triangle[0];
+    const glm::dvec3 edge1 = triangle[2] - triangle[0];
+    const glm::dvec3 v0 = triangle[0] - sourcePosition;  // diff
 
-    double a = glm::dot(edge0, edge0 );
-    double b = glm::dot(edge0, edge1 );
-    double c = glm::dot(edge1, edge1 );
-    double d = glm::dot(edge0, v0 );
-    double e = glm::dot(edge1, v0 );
+    const float a = glm::dot( edge0, edge0 );  // a00
+    const float b = glm::dot( edge0, edge1 );  // a01
+    const float c = glm::dot( edge1, edge1 );  // a11
+    const float d = glm::dot( edge0, v0 );     // b0
+    const float e = glm::dot( edge1, v0 );     // b1
+    const float det = std::max(a*c - b*b, 0.f);
 
-    double det = a*c - b*b;
-    double s = b*e - c*d;
-    double t = b*d - a*e;
+    float s = b*e - c*d;
+    float t = b*d - a*e;
 
-    if ( s + t < det )
+    if ( s + t <= det )
     {
         if ( s < 0.f )
         {
-            if ( t < 0.f )
+            if ( t < 0.f )  // region 4
             {
                 if ( d < 0.f )
                 {
-                    s = clamp( -d/a, 0.f, 1.f );
+                    s = std::clamp( -d/a, 0.f, 1.f );
                     t = 0.f;
                 }
                 else
                 {
                     s = 0.f;
-                    t = clamp( -e/c, 0.f, 1.f );
+                    t = std::clamp( -e/c, 0.f, 1.f );
                 }
             }
-            else
+            else  // region 3
             {
                 s = 0.f;
-                t = clamp( -e/c, 0.f, 1.f );
+                t = std::clamp( -e/c, 0.f, 1.f );
             }
         }
-        else if ( t < 0.f )
+        else if ( t < 0.f )  // region 5
         {
-            s = clamp( -d/a, 0.f, 1.f );
+            s = std::clamp( -d/a, 0.f, 1.f );
             t = 0.f;
         }
-        else
+        else  // region 0
         {
+            // minimum at interior point
             float invDet = 1.f / det;
             s *= invDet;
             t *= invDet;
@@ -106,48 +109,50 @@ glm::dvec3 Model_OBJ::Closest_Point( const glm::dvec3 *triangle, const glm::dvec
     }
     else
     {
-        if ( s < 0.f )
+        if ( s < 0.f )  // region 2
         {
             float tmp0 = b+d;
             float tmp1 = c+e;
             if ( tmp1 > tmp0 )
             {
                 float numer = tmp1 - tmp0;
-                float denom = a-2*b+c;
-                s = clamp( numer/denom, 0.f, 1.f );
-                t = 1-s;
+                float denom = a-2.f*b+c;
+                s = std::clamp( numer/denom, 0.f, 1.f );
+                t = 1.f - s;
             }
             else
             {
-                t = clamp( -e/c, 0.f, 1.f );
                 s = 0.f;
+                t = std::clamp( -e/c, 0.f, 1.f );
             }
         }
-        else if ( t < 0.f )
+        else if ( t < 0.f )  // region 6
         {
-            if ( a+d > b+e )
+            float tmp0 = b+e;
+            float tmp1 = a+d;
+            if ( tmp1 > tmp0 )
             {
-                float numer = c+e-b-d;
-                float denom = a-2*b+c;
-                s = clamp( numer/denom, 0.f, 1.f );
-                t = 1-s;
+                float numer = tmp1 - tmp0;
+                float denom = a-2.f*b+c;
+                t = std::clamp( numer/denom, 0.f, 1.f );
+                s = 1.f - t;
             }
             else
             {
-                s = clamp( -e/c, 0.f, 1.f );
+                s = std::clamp( -d/a, 0.f, 1.f );
                 t = 0.f;
             }
         }
-        else
+        else  // region 1
         {
             float numer = c+e-b-d;
-            float denom = a-2*b+c;
-            s = clamp( numer/denom, 0.f, 1.f );
+            float denom = a-2.f*b+c;
+            s = std::clamp( numer/denom, 0.f, 1.f );
             t = 1.f - s;
         }
     }
 
-    return triangle[0] + s * edge0 + t * edge1;
+    return triangle[0] + static_cast<double>(s) * edge0 + static_cast<double>(t) * edge1;
 }
 
 glm::dvec3 Model_OBJ::Find_Closest(int i) const
@@ -220,7 +225,7 @@ void Model_OBJ::Project_Manifold()
     colors.clear();
     colors.resize(vertices.size(),glm::dvec3(1,1,1));
 
-    vector<vector<int> > vertex_faces(vertices.size());
+    std::vector<std::vector<int> > vertex_faces(vertices.size());
     std::vector<glm::dvec3> face_normals(face_indices.size());
     for (int i = 0; i < (int)face_indices.size(); ++i)
     {
@@ -233,7 +238,7 @@ void Model_OBJ::Project_Manifold()
             vertex_faces[id[j]].push_back(i);
         }
     }
-    vector<int> vertices_hash(vertices.size(), 0);
+    std::vector<int> vertices_hash(vertices.size(), 0);
     double min_step = 2.0 / ITER_NUM;
 
 for (int iter = 0; iter < ITER_NUM; ++iter) {
@@ -434,18 +439,14 @@ for (int iter = 0; iter < ITER_NUM; ++iter) {
 
 void Model_OBJ::Process_Manifold(int resolution)
 {
-//  vertices_buf = vertices;
-//  face_indices_buf = face_indices;
-//  Build_BVH();
+    vertices_buf = vertices;
+    face_indices_buf = face_indices;
     Build_Tree(resolution);
-    tree->SwapFaces(face_indices_buf, vertices_buf);
-    std::cout << "DEBUG: resolution: " << resolution << " level: " << tree->level << " number: " << tree->number << " occupied: " << tree->occupied << " exterior: " << tree->exterior << std::endl;
-
     Construct_Manifold();
     Project_Manifold();
 
-    for (int iter = 0; iter < 1; ++iter)
-    {
+for (int iter = 0; iter < 1; ++iter)
+{
     vector<glm::dvec3> dis(vertices.size());
     vector<int> dis_weight(vertices.size());
     for (int i = 0; i < (int)face_indices.size(); ++i)
@@ -465,7 +466,7 @@ void Model_OBJ::Process_Manifold(int resolution)
         if (dis_weight[i] > 0)
             vertices[i] = dis[i] * (1.0 / dis_weight[i]);
     }
-    }
+}
     int flag = is_manifold();
     if (flag != 0)
     {
@@ -487,7 +488,7 @@ bool Model_OBJ::Split_Grid(map<Grid_Index,int>& vcolor, vector<glm::dvec3>& nver
         v_info[it->second] = it->first;
     }
     set<int> marked_v;
-    map<pair<int,int>,list<pair<int,int> > > edge_info;
+    map<pair<int,int>,vector<pair<int,int> > > edge_info;
     for (int i = 0; i < (int)nface_indices.size(); ++i)
     {
         for (int j = 0; j < 4; ++j)
@@ -501,19 +502,19 @@ bool Model_OBJ::Split_Grid(map<Grid_Index,int>& vcolor, vector<glm::dvec3>& nver
                 y = temp;
             }
             pair<int,int> edge = make_pair(x,y);
-            map<pair<int,int>, list<pair<int,int> > >::iterator it = edge_info.find(edge);
+            map<pair<int,int>, vector<pair<int,int> > >::iterator it = edge_info.find(edge);
             if (it != edge_info.end())
             {
                 it->second.push_back(make_pair(i,j));
             } else
             {
-                list<pair<int,int> > buf;
+                vector<pair<int,int> > buf;
                 buf.push_back(make_pair(i,j));
                 edge_info.insert(make_pair(edge, buf));
             }
         }
     }
-    for (map<pair<int,int>,list<pair<int,int> > >::iterator it = edge_info.begin();
+    for (map<pair<int,int>,vector<pair<int,int> > >::iterator it = edge_info.begin();
         it != edge_info.end(); ++it)
     {
         if (it->second.size() > 2) {
@@ -862,8 +863,8 @@ bool Model_OBJ::Split_Grid(map<Grid_Index,int>& vcolor, vector<glm::dvec3>& nver
 
 int Model_OBJ::is_manifold()
 {
-    map<pair<int,int>,list<glm::dvec3> > edges;
-    vector<set<int> > graph(vertices.size());
+    map<pair<int,int>,vector<glm::dvec3> > edges;
+    //vector<set<int> > graph(vertices.size());
     int flag = 0;
     for (int i = 0; i < (int)face_indices.size(); ++i)
     {
@@ -882,10 +883,10 @@ int Model_OBJ::is_manifold()
                 flag = -1;
             }
             pair<int,int> edge_id = make_pair(x,y);
-            map<pair<int,int>,list<glm::dvec3> >::iterator it = edges.find(edge_id);
+            map<pair<int,int>,vector<glm::dvec3> >::iterator it = edges.find(edge_id);
             if (it == edges.end())
             {
-                list<glm::dvec3> l;
+                vector<glm::dvec3> l;
                 l.push_back(vertices[face_indices[i][(j+2)%3]]);
                 edges.insert(make_pair(edge_id,l));
             } else
@@ -910,7 +911,7 @@ int Model_OBJ::is_manifold()
             }
         }
     }
-    for (map<pair<int,int>,list<glm::dvec3> >::iterator edge_it = edges.begin();
+    for (map<pair<int,int>,vector<glm::dvec3> >::iterator edge_it = edges.begin();
         edge_it != edges.end(); ++edge_it)
     {
         if (edge_it->second.size() == 1)

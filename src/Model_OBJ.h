@@ -6,18 +6,14 @@
 #include <cmath>
 #include <vector>
 #include <map>
+#include <set>
+#include <queue>
 
 #include "Octree.h"
 
 class Model_OBJ
 {
 public:
-    struct Edge_Info
-    {
-        int face_x, face_y;
-        std::map<int, int> loop_index;
-    };
-
     Model_OBJ();
     ~Model_OBJ();
 
@@ -29,18 +25,10 @@ public:
 
 protected:
     void Calc_Bounding_Box(glm::dvec3& min_corner, glm::dvec3& max_corner);
-    glm::dvec3 Closest_Point( const glm::dvec3 *triangle, const glm::dvec3 &sourcePosition ) const;
+    glm::dvec3 Closest_Point( const glm::dvec3 triangle[3], const glm::dvec3& sourcePosition ) const;
     glm::dvec3 Find_Closest(int i) const;
     int is_manifold();
     bool Split_Grid(std::map<Grid_Index,int>& vcolor, std::vector<glm::dvec3>& nvertices, const std::vector<glm::ivec4>& nface_indices, std::vector<std::set<int> >& v_faces, std::vector<glm::ivec3>& triangles);
-    double clamp(double d1, double l, double r) const
-    {
-        if (d1 < l)
-            return l;
-        if (d1 > r)
-            return r;
-        return d1;
-    }
 
 public:
     std::vector<std::set<int> > v_faces;

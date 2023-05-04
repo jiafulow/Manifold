@@ -4,9 +4,9 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include <vector>
-#include <list>
-#include <set>
 #include <map>
+#include <set>
+#include <queue>
 
 class Grid_Index
 {
@@ -66,22 +66,23 @@ public:
 
     void BuildEmptyList();
 
-    void ExpandEmpty(std::list<Octree*>& empty_list, std::set<Octree*>& empty_set, int dim);
+    void ExpandEmpty(std::queue<Octree*>& empty_list, std::set<Octree*>& empty_set, int dim);
 
     void ConstructFace(std::map<Grid_Index,int>& vcolor,const glm::ivec3& start,std::vector<glm::dvec3>& vertices,std::vector<glm::ivec4>& faces, std::vector<std::set<int> >& v_faces) const;
 
+public:
     glm::dvec3 min_corner, length;
     int level;
     int number;
     int occupied;
     int exterior;
-    std::list<Octree*> empty_neighbors;
 
 protected:
     Octree* children[8];
     Octree* connection[6];
     Octree* empty_connection[6];
 
+    std::vector<Octree*> empty_neighbors;
     std::vector<glm::ivec3> face_indices;
     std::vector<int> face_ind;
 };

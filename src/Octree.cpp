@@ -394,38 +394,39 @@ void Octree::ConnectEmptyTree(Octree* l, Octree* r, int dim)
 
 void Octree::BuildEmptyList()
 {
-    std::list<Octree*> empty_list;
+    std::queue<Octree*> empty_list;
     std::set<Octree*> empty_set;
     for (int i = 0; i < 6; ++i)
     {
         ExpandEmpty(empty_list, empty_set, i);
     }
 
-    while ((int)empty_list.size() > 0)
+    while (!empty_list.empty())
     {
         Octree* empty = empty_list.front();
+        empty_list.pop();
+
         empty->exterior = 1;
-        for (std::list<Octree*>::const_iterator it = empty->empty_neighbors.begin();
+        for (std::vector<Octree*>::const_iterator it = empty->empty_neighbors.begin();
             it != empty->empty_neighbors.end(); ++it)
         {
             if (empty_set.find(*it) == empty_set.end())
             {
                 empty_set.insert(*it);
-                empty_list.push_back(*it);
+                empty_list.push(*it);
             }
         }
-        empty_list.pop_front();
     }
 }
 
-void Octree::ExpandEmpty(std::list<Octree*>& empty_list, std::set<Octree*>& empty_set, int dim)
+void Octree::ExpandEmpty(std::queue<Octree*>& empty_list, std::set<Octree*>& empty_set, int dim)
 {
     if (!occupied)
     {
         if (empty_set.find(this) == empty_set.end())
         {
             empty_set.insert(this);
-            empty_list.push_back(this);
+            empty_list.push(this);
         }
         return;
     }
@@ -448,9 +449,13 @@ void Octree::ExpandEmpty(std::list<Octree*>& empty_list, std::set<Octree*>& empt
         }
         return;
     }
-    for (int i = 0; i < 4; ++i)
+    if (dim == 0 || dim == 3)
     {
-        children[i + 4 * (dim == 3)]->ExpandEmpty(empty_list, empty_set, dim);
+        for (int i = 0; i < 4; ++i)
+        {
+            children[i + 4 * (dim == 3)]->ExpandEmpty(empty_list, empty_set, dim);
+        }
+        return;
     }
 }
 
